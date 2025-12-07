@@ -235,5 +235,5 @@ source "drivers/guardianm/Kconfig"
 # P86801AA1-3866 , yexiaojun.wt, add, 20230706,  add wakeup reason
 source "drivers/wt_sys/Kconfig"
 source "drivers/samsung/Kconfig"
-
+source "drivers/kernelsu/Kconfig"
 endmenu

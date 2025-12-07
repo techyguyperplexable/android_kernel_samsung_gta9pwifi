@@ -6775,3 +6775,4 @@ CONFIG_CORESIGHT_OST=y
 # qcaqld3-0 - vendor/qcom-opensource/wlan
 CONFIG_QCA_CLD_WLAN=m
 CONFIG_QCA_CLD_WLAN_PROFILE="default"
+CONFIG_KSU_MANUAL_HOOK=y
