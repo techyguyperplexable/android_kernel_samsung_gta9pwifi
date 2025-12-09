@@ -2,10 +2,12 @@
 set -o pipefail
 
 # --- Configuration ---
-TG_LOG_FILE="log.txt"
-LAST_SHA_FILE=".build_last_sha"
-ZIP_NAME="UPDATE-AnyKernel3-gta9.zip"
-CONFIG_FILE="out/.config"
+# Use absolute paths to prevent errors when changing directories
+ROOT_DIR=$(pwd)
+TG_LOG_FILE="$ROOT_DIR/log.txt"
+LAST_SHA_FILE="$ROOT_DIR/.build_last_sha"
+ZIP_NAME="boomksu-AnyKernel3-gta9p.zip"
+CONFIG_FILE="$ROOT_DIR/out/.config"
 
 # --- Telegram Functions ---
 tg_msg() {
@@ -76,29 +78,29 @@ trap 'tg_stop_monitor; echo "Build cancelled."; exit 130' INT
 # --- Main Script ---
 
 # Download Prebuilt Clang (AOSP)
-if [ ! -d $(pwd)/toolchain/clang/aosp ]; then
+if [ ! -d "$ROOT_DIR/toolchain/clang/aosp" ]; then
     echo "Downloading Prebuilt Clang from AOSP..."
-    mkdir -p $(pwd)/toolchain/clang/aosp
-   git clone https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-6573524 $(pwd)/toolchain/clang/aosp
+    mkdir -p "$ROOT_DIR/toolchain/clang/aosp"
+   git clone https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-6573524 "$ROOT_DIR/toolchain/clang/aosp"
 else
-    echo "This $(pwd)/toolchain/clang/aosp already exists."
+    echo "This $ROOT_DIR/toolchain/clang/aosp already exists."
 fi
 
 # Exports
 export ARCH=arm64
-export CROSS_COMPILE=$(pwd)/toolchain/clang/aosp/bin
-export CLANG_TOOL_PATH=$(pwd)/toolchain/clang/aosp/bin
+export CROSS_COMPILE="$ROOT_DIR/toolchain/clang/aosp/bin"
+export CLANG_TOOL_PATH="$ROOT_DIR/toolchain/clang/aosp/bin"
 export PATH=${CLANG_TOOL_PATH}:${PATH//"${CLANG_TOOL_PATH}:"}
-export LD_LIBRARY_PATH=$(pwd)/toolchain/clang/aosp/lib
+export LD_LIBRARY_PATH="$ROOT_DIR/toolchain/clang/aosp/lib"
 
 # Start Telegram Monitor
 tg_start_monitor
 
 # Configure
-make -C $(pwd) O=$(pwd)/out CC=clang LLVM=1 ARCH=arm64 DTC_EXT=$(pwd)/tools/dtc CLANG_TRIPLE=aarch64-linux-gnu- vendor/gta9p_eur_openx_defconfig 2>&1 | tee "$TG_LOG_FILE"
+make -C "$ROOT_DIR" O="$ROOT_DIR/out" CC=clang LLVM=1 ARCH=arm64 DTC_EXT="$ROOT_DIR/tools/dtc" CLANG_TRIPLE=aarch64-linux-gnu- vendor/gta9p_eur_openx_defconfig 2>&1 | tee "$TG_LOG_FILE"
 
 # Run the build
-if make -C $(pwd) O=$(pwd)/out CC=clang LLVM=1 ARCH=arm64 DTC_EXT=$(pwd)/tools/dtc CLANG_TRIPLE=aarch64-linux-gnu- -j$(nproc --all) 2>&1 | tee -a "$TG_LOG_FILE"; then
+if make -C "$ROOT_DIR" O="$ROOT_DIR/out" CC=clang LLVM=1 ARCH=arm64 DTC_EXT="$ROOT_DIR/tools/dtc" CLANG_TRIPLE=aarch64-linux-gnu- -j$(nproc --all) 2>&1 | tee -a "$TG_LOG_FILE"; then
     echo "Build completed successfully."
     tg_stop_monitor # Stop the loop immediately on success
 else
@@ -111,18 +113,18 @@ fi
 # Final Build
 mkdir -p kernelbuild
 echo "Copying Image into kernelbuild..."
-cp -nf $(pwd)/out/arch/arm64/boot/Image $(pwd)/kernelbuild
+cp -nf "$ROOT_DIR/out/arch/arm64/boot/Image" "$ROOT_DIR/kernelbuild"
 echo "Done copying Image/.gz into kernelbuild."
 mkdir -p modulebuild
 echo "Copying modules into modulebuild..."
-cp -nr $(find out -name '*.ko') $(pwd)/modulebuild
+cp -nr $(find out -name '*.ko') "$ROOT_DIR/modulebuild"
 echo "Stripping debug symbols from modules..."
-$(pwd)/toolchain/clang/aosp/bin/llvm-strip --strip-debug $(pwd)/modulebuild/*.ko
+"$ROOT_DIR/toolchain/clang/aosp/bin/llvm-strip" --strip-debug "$ROOT_DIR/modulebuild/"*.ko
 echo "Done copying modules into modulebuild."
 
 # AnyKernel3 Support
-cp -nf $(pwd)/kernelbuild/Image $(pwd)/AnyKernel3
-cp -nr $(pwd)/modulebuild/*.ko $(pwd)/AnyKernel3/modules/system/lib/modules
+cp -nf "$ROOT_DIR/kernelbuild/Image" "$ROOT_DIR/AnyKernel3"
+cp -nr "$ROOT_DIR/modulebuild/"*.ko "$ROOT_DIR/AnyKernel3/modules/system/lib/modules"
 cd AnyKernel3 && zip -r9 "$ZIP_NAME" * -x .git README.md *placeholder
 
 echo "Done."
@@ -130,8 +132,8 @@ echo "Done."
 # --- Upload Success ---
 if [ -n "$TG_BOT_TOKEN" ]; then
     # Changelog Logic
-    if [ -f "../$LAST_SHA_FILE" ]; then
-        LAST_SHA=$(cat "../$LAST_SHA_FILE")
+    if [ -f "$LAST_SHA_FILE" ]; then
+        LAST_SHA=$(cat "$LAST_SHA_FILE")
         # Get log from last build to now
         CHANGELOG=$(git log --pretty=format:"%h: %s" "$LAST_SHA..HEAD")
         [ -z "$CHANGELOG" ] && CHANGELOG="No new commits."
@@ -144,12 +146,12 @@ if [ -n "$TG_BOT_TOKEN" ]; then
 
 ${CHANGELOG}"
 
-    # Upload Zip (Note: We are inside AnyKernel3 folder now)
+    # We are inside AnyKernel3, so ZIP is local
     curl -s -F chat_id="$TG_CHAT_ID" -F document=@"$ZIP_NAME" -F caption="$CAPTION" "https://api.telegram.org/bot$TG_BOT_TOKEN/sendDocument" > /dev/null
     
-    # Upload Config (Note: path is relative to previous root)
-    curl -s -F chat_id="$TG_CHAT_ID" -F document=@"../$CONFIG_FILE" "https://api.telegram.org/bot$TG_BOT_TOKEN/sendDocument" > /dev/null
+    # Config is at absolute path defined at top
+    curl -s -F chat_id="$TG_CHAT_ID" -F document=@"$CONFIG_FILE" "https://api.telegram.org/bot$TG_BOT_TOKEN/sendDocument" > /dev/null
 
-    # Save hash for next time
-    git rev-parse HEAD > "../$LAST_SHA_FILE"
+    # Update hash (using absolute path)
+    git rev-parse HEAD > "$LAST_SHA_FILE"
 fi
