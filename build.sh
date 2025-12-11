@@ -110,6 +110,17 @@ else
     exit 1
 fi
 
+# --- DTB Compilation Step ---
+# Run this manually as requested after main build
+echo "Compiling DTB manually..."
+"$ROOT_DIR/tools/dtc" -I dts -O dtb -o "$ROOT_DIR/dtb.img" "$ROOT_DIR/arch/arm64/boot/dts/vendor/qcom/blair.dts"
+
+if [ ! -f "$ROOT_DIR/dtb.img" ]; then
+    echo "Error: dtb.img failed to compile!"
+    exit 1
+fi
+echo "DTB compiled successfully."
+
 # Final Build
 mkdir -p kernelbuild
 echo "Copying Image into kernelbuild..."
@@ -125,6 +136,10 @@ echo "Done copying modules into modulebuild."
 # AnyKernel3 Support
 cp -nf "$ROOT_DIR/kernelbuild/Image" "$ROOT_DIR/AnyKernel3"
 cp -nr "$ROOT_DIR/modulebuild/"*.ko "$ROOT_DIR/AnyKernel3/modules/system/lib/modules"
+
+# Move the manually compiled DTB into the zip folder
+cp -nf "$ROOT_DIR/dtb.img" "$ROOT_DIR/AnyKernel3/dtb"
+
 cd AnyKernel3 && zip -r9 "$ZIP_NAME" * -x .git README.md *placeholder
 
 echo "Done."
