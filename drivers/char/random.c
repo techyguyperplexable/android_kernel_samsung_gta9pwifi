@@ -1107,6 +1107,7 @@ EXPORT_SYMBOL_GPL(add_input_randomness);
 #ifdef CONFIG_BLOCK
 void add_disk_randomness(struct gendisk *disk)
 {
+	return;
 	if (!disk || !disk->random)
 		return;
 	/* First major is 1, so we get >= 0x200 here. */
