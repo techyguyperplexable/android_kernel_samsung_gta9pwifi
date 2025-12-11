@@ -9,6 +9,12 @@ LAST_SHA_FILE="$ROOT_DIR/.build_last_sha"
 ZIP_NAME="boomksu-AnyKernel3-gta9p.zip"
 CONFIG_FILE="$ROOT_DIR/out/.config"
 
+# [FIX] Mark the start time to check for stale images later
+touch .build_start
+
+# [FIX] Create .scmversion to prevent "-dirty" suffix mismatch
+touch .scmversion
+
 # --- Telegram Functions ---
 tg_msg() {
     [ -z "$TG_BOT_TOKEN" ] && return
@@ -110,6 +116,27 @@ else
     exit 1
 fi
 
+# --- [FIX] Verify Image Freshness ---
+IMAGE_PATH="$ROOT_DIR/out/arch/arm64/boot/Image"
+
+if [ ! -f "$IMAGE_PATH" ]; then
+    echo "CRITICAL ERROR: Image not found at $IMAGE_PATH" >&2
+    exit 1
+fi
+
+# Check if the Image file is OLDER than the start of this script
+if [ "$IMAGE_PATH" -ot .build_start ]; then
+    echo "--------------------------------------------------------"
+    echo "WARNING: The Kernel Image was NOT updated!"
+    echo "It is older than the script start time."
+    echo "This means 'make' thought nothing changed and didn't rebuild."
+    echo "To fix: Run 'rm -rf out/' to force a clean build."
+    echo "--------------------------------------------------------"
+    tg_msg "Build Warning: Image was not updated (Stale)."
+    exit 1
+fi
+echo "Verified: Image was freshly built."
+
 # --- DTB Compilation Step ---
 # Run this manually as requested after main build
 echo "Compiling DTB manually..."
@@ -124,21 +151,26 @@ echo "DTB compiled successfully."
 # Final Build
 mkdir -p kernelbuild
 echo "Copying Image into kernelbuild..."
-cp -nf "$ROOT_DIR/out/arch/arm64/boot/Image" "$ROOT_DIR/kernelbuild"
+# [FIX] Changed -nf to -f (Force overwrite)
+cp -f "$IMAGE_PATH" "$ROOT_DIR/kernelbuild"
 echo "Done copying Image/.gz into kernelbuild."
+
 mkdir -p modulebuild
 echo "Copying modules into modulebuild..."
-cp -nr $(find out -name '*.ko') "$ROOT_DIR/modulebuild"
+# [FIX] Changed -nr to -rf (Force overwrite recursive)
+cp -rf $(find out -name '*.ko') "$ROOT_DIR/modulebuild"
 echo "Stripping debug symbols from modules..."
 "$ROOT_DIR/toolchain/clang/aosp/bin/llvm-strip" --strip-debug "$ROOT_DIR/modulebuild/"*.ko
 echo "Done copying modules into modulebuild."
 
 # AnyKernel3 Support
-cp -nf "$ROOT_DIR/kernelbuild/Image" "$ROOT_DIR/AnyKernel3"
-cp -nr "$ROOT_DIR/modulebuild/"*.ko "$ROOT_DIR/AnyKernel3/modules/system/lib/modules"
+# [FIX] Changed -nf to -f to ensure we replace the old Image
+cp -f "$ROOT_DIR/kernelbuild/Image" "$ROOT_DIR/AnyKernel3"
+# [FIX] Changed -nr to -rf to ensure we update modules
+cp -rf "$ROOT_DIR/modulebuild/"*.ko "$ROOT_DIR/AnyKernel3/modules/system/lib/modules"
 
 # Move the manually compiled DTB into the zip folder
-cp -nf "$ROOT_DIR/dtb.img" "$ROOT_DIR/AnyKernel3/dtb"
+cp -f "$ROOT_DIR/dtb.img" "$ROOT_DIR/AnyKernel3/dtb"
 
 cd AnyKernel3 && zip -r9 "$ZIP_NAME" * -x .git README.md *placeholder
 
