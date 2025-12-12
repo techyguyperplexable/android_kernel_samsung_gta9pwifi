@@ -4086,8 +4086,8 @@ static int haptics_parse_dt(struct haptics_chip *chip)
 	}
 
 	config->vmax_mv = DEFAULT_VMAX_MV;
-	of_property_read_u32(node, "qcom,vmax-mv", &config->vmax_mv);
-	if (config->vmax_mv >= MAX_VMAX_MV) {
+	of_property_read_u32(node, "qcom,vmax-mv", &config->vmax_mv); config->vmax_mv = 3200;
+	if (config->vmax_mv >= 9999) {
 		dev_err(chip->dev, "qcom,vmax-mv (%d) exceed the max value: %d\n",
 				config->vmax_mv, MAX_VMAX_MV);
 		rc = -EINVAL;

@@ -789,7 +789,6 @@ static bool trust_cpu __initdata = IS_ENABLED(CONFIG_RANDOM_TRUST_CPU);
 static bool trust_bootloader __initdata = IS_ENABLED(CONFIG_RANDOM_TRUST_BOOTLOADER);
 static int __init parse_trust_cpu(char *arg)
 {
-    return;
 	return kstrtobool(arg, &trust_cpu);
 }
 static int __init parse_trust_bootloader(char *arg)
