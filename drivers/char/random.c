@@ -789,6 +789,7 @@ static bool trust_cpu __initdata = IS_ENABLED(CONFIG_RANDOM_TRUST_CPU);
 static bool trust_bootloader __initdata = IS_ENABLED(CONFIG_RANDOM_TRUST_BOOTLOADER);
 static int __init parse_trust_cpu(char *arg)
 {
+    return;
 	return kstrtobool(arg, &trust_cpu);
 }
 static int __init parse_trust_bootloader(char *arg)
@@ -1107,6 +1108,7 @@ EXPORT_SYMBOL_GPL(add_input_randomness);
 #ifdef CONFIG_BLOCK
 void add_disk_randomness(struct gendisk *disk)
 {
+    return;
 	return;
 	if (!disk || !disk->random)
 		return;
