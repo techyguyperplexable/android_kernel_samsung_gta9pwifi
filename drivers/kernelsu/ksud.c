@@ -39,13 +39,9 @@ extern int ksu_observer_init(void);
 #endif
 #include "selinux/selinux.h"
 #include "throne_tracker.h"
-#ifdef CONFIG_KSU_MANUAL_HOOK
-#include "sucompat.h"
-#endif
 
 bool ksu_module_mounted __read_mostly = false;
 bool ksu_boot_completed __read_mostly = false;
-bool already_post_fs_data __read_mostly = false;
 
 static const char KERNEL_SU_RC[] =
 	"\n"
@@ -85,6 +81,7 @@ bool ksu_input_hook __read_mostly = true;
 u32 ksu_file_sid;
 void on_post_fs_data(void)
 {
+	static bool already_post_fs_data = false;
 	if (already_post_fs_data) {
 		pr_info("on_post_fs_data already done\n");
 		return;
@@ -244,12 +241,6 @@ int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
 	if (IS_ERR(filename)) {
 		return 0;
 	}
-
-#ifdef CONFIG_KSU_MANUAL_HOOK
-	if (!ksu_handle_execveat_init(filename)) {
-		return 1;
-	}
-#endif
 
 	if (unlikely(!memcmp(filename->name, system_bin_init,
 			     sizeof(system_bin_init) - 1) &&
@@ -481,6 +472,7 @@ int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
 int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr,
 			size_t *count_ptr)
 {
+#ifdef CONFIG_KSU_SYSCALL_HOOK
 	struct file *file = fget(fd);
 	if (!file) {
 		return 0;
@@ -488,6 +480,10 @@ int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr,
 	int result = ksu_handle_vfs_read(&file, buf_ptr, count_ptr, NULL);
 	fput(file);
 	return result;
+#else
+	/* Do nothing */
+	return 0;
+#endif
 }
 
 static unsigned int volumedown_pressed_count = 0;
@@ -505,15 +501,19 @@ int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code,
 		return 0;
 	}
 #endif
+
 	if (*type == EV_KEY && *code == KEY_VOLUMEDOWN) {
-		int val = *value;
-		pr_info("KEY_VOLUMEDOWN val: %d\n", val);
-		if (val) {
-			// key pressed, count it
-			volumedown_pressed_count += 1;
-			if (is_volumedown_enough(volumedown_pressed_count)) {
-				stop_input_hook();
-			}
+		// Logic: 0 = released, 1 = pressed
+		if (*value <= 0) {
+			return 0;
+		}
+
+		// key pressed, count it
+		volumedown_pressed_count++;
+		pr_info("input_handle_event: vol_down pressed count: %u\n", volumedown_pressed_count);
+		if (is_volumedown_enough(volumedown_pressed_count)) {
+			pr_info("input_handle_event: vol_down pressed MAX! safe mode is active!\n");
+			stop_input_hook();
 		}
 	}
 
@@ -522,80 +522,8 @@ int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code,
 
 bool ksu_is_safe_mode(void)
 {
-	if (already_post_fs_data) {
-		// stop checking if its already on-post-fs-data
-		return false;
-	}
-
-	static bool safe_mode = false;
-	if (safe_mode) {
-		// don't need to check again, userspace may call multiple times
-		return true;
-	}
-
-	// just in case
-	stop_input_hook();
-
-	pr_info("volumedown_pressed_count: %d\n", volumedown_pressed_count);
-
-	if (is_volumedown_enough(volumedown_pressed_count)) {
-		// pressed over 3 times
-		pr_info("KEY_VOLUMEDOWN pressed max times, safe mode detected!\n");
-		safe_mode = true;
-		return true;
-	}
-
-	return false;
+	return is_volumedown_enough(volumedown_pressed_count);
 }
-
-#ifdef CONFIG_KSU_MANUAL_HOOK
-static int ksu_execve_ksud_common(const char __user *filename_user,
-				  struct user_arg_ptr *argv)
-{
-	struct filename filename_in, *filename_p;
-	char path[32];
-	long len;
-
-	// return early if disabled.
-	if (!ksu_execveat_hook) {
-		return 0;
-	}
-
-	if (!filename_user)
-		return 0;
-
-	len = ksu_strncpy_from_user_nofault(path, filename_user, 32);
-	if (len <= 0)
-		return 0;
-
-	path[sizeof(path) - 1] = '\0';
-
-	// this is because ksu_handle_execveat_ksud calls it filename->name
-	filename_in.name = path;
-	filename_p = &filename_in;
-
-	return ksu_handle_execveat_ksud(AT_FDCWD, &filename_p, argv, NULL,
-					NULL);
-}
-
-int __maybe_unused
-ksu_handle_execve_ksud(const char __user *filename_user,
-		       const char __user *const __user *__argv)
-{
-	struct user_arg_ptr argv = { .ptr.native = __argv };
-	return ksu_execve_ksud_common(filename_user, &argv);
-}
-
-#if defined(CONFIG_COMPAT) && defined(CONFIG_64BIT)
-int __maybe_unused ksu_handle_compat_execve_ksud(
-	const char __user *filename_user, const compat_uptr_t __user *__argv)
-{
-	struct user_arg_ptr argv = { .ptr.compat = __argv };
-	return ksu_execve_ksud_common(filename_user, &argv);
-}
-#endif /* COMPAT & 64BIT */
-
-#endif
 
 static void stop_vfs_read_hook(void)
 {
@@ -622,6 +550,7 @@ static void stop_input_hook(void)
 #ifdef CONFIG_KSU_SYSCALL_HOOK
 	kp_handle_ksud_stop(INPUT_EVENT_HOOK_KP);
 #else
+	// No need to stop when its already stopped.
 	if (!ksu_input_hook) {
 		return;
 	}

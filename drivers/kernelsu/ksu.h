@@ -5,7 +5,7 @@
 #include <linux/workqueue.h>
 #include <linux/cred.h>
 
-#define KERNEL_SU_VERSION 32286
+#define KERNEL_SU_VERSION KSU_VERSION
 
 #define EVENT_POST_FS_DATA 1
 #define EVENT_BOOT_COMPLETED 2
@@ -25,6 +25,6 @@ static inline int endswith(const char *s, const char *t)
 	return strcmp(s + slen - tlen, t);
 }
 
-extern struct cred* ksu_cred;
+extern struct cred *ksu_cred;
 
 #endif

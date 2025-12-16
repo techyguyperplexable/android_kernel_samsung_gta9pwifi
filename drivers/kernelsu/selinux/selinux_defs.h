@@ -10,40 +10,56 @@
 #include "avc.h"
 #endif
 
+static inline bool is_selinux_disabled(void)
+{
 #ifdef CONFIG_SECURITY_SELINUX_DISABLE
 #ifdef KSU_COMPAT_USE_SELINUX_STATE
-#define is_selinux_disabled() (selinux_state.disabled)
+	return selinux_state.disabled;
 #else
-#define is_selinux_disabled() (selinux_disabled)
+	return selinux_disabled;
 #endif
 #else
-#define is_selinux_disabled() (0)
+	return false;
 #endif
+}
 
+static inline bool is_selinux_enforcing(void)
+{
 #ifdef CONFIG_SECURITY_SELINUX_DEVELOP
 #ifdef KSU_COMPAT_USE_SELINUX_STATE
-#define __is_selinux_enforcing() (selinux_state.enforcing)
-#define __setenforce(val) selinux_state.enforcing = val
+	return selinux_state.enforcing;
 #elif defined(SAMSUNG_SELINUX_PORTING) || !defined(KSU_COMPAT_USE_SELINUX_STATE)
-#define __is_selinux_enforcing() (selinux_enforcing)
-#define __setenforce(val) selinux_enforcing = val
+	return selinux_enforcing;
 #endif
 #else
-#define __is_selinux_enforcing() (1)
-#define __setenforce(val)
+	return true;
 #endif
+}
+
+static inline void do_setenforce(bool val)
+{
+#ifdef CONFIG_SECURITY_SELINUX_DEVELOP
+#ifdef KSU_COMPAT_USE_SELINUX_STATE
+	selinux_state.enforcing = val;
+#else
+	selinux_enforcing = val;
+#endif
+#else
+	/* do nothing */
+#endif
+}
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 18, 0)
-typedef struct task_security_struct selinux_security_struct;
+typedef struct task_security_struct taskcred_sec_t;
 #else
-typedef struct cred_security_struct selinux_security_struct;
+typedef struct cred_security_struct taskcred_sec_t;
 #endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0) &&                           \
      !defined(KSU_OPTIONAL_SELINUX_CRED))
-static inline selinux_security_struct *selinux_cred(const struct cred *cred)
+static inline taskcred_sec_t *selinux_cred(const struct cred *cred)
 {
-	return (selinux_security_struct *)cred->security;
+	return (taskcred_sec_t *)cred->security;
 }
 #endif
 
@@ -73,7 +89,7 @@ static inline void __security_release_secctx(struct lsm_context *cp)
  */
 static inline u32 current_sid(void)
 {
-	const selinux_security_struct *sec = current_security();
+	const taskcred_sec_t *sec = current_security();
 
 	return sec->sid;
 }

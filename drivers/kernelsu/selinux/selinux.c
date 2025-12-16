@@ -8,7 +8,7 @@
 
 static int transive_to_domain(const char *domain, struct cred *cred)
 {
-	selinux_security_struct *sec;
+	taskcred_sec_t *sec;
 	u32 sid;
 	int error;
 
@@ -75,7 +75,7 @@ void setup_ksu_cred(void)
 
 void setenforce(bool enforce)
 {
-	__setenforce(enforce);
+	do_setenforce(enforce);
 }
 
 bool getenforce(void)
@@ -84,12 +84,12 @@ bool getenforce(void)
 		return false;
 	}
 
-	return __is_selinux_enforcing();
+	return is_selinux_enforcing();
 }
 
 bool is_context(const struct cred *cred, const char *context)
 {
-	const selinux_security_struct *sec;
+	const taskcred_sec_t *sec;
 	struct lsm_context ctx = { 0 };
 	bool result = false;
 	int err;

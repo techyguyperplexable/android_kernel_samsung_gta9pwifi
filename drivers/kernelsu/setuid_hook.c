@@ -1,29 +1,14 @@
 #include <linux/compiler.h>
 #include <linux/version.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
-#include <linux/sched/signal.h>
-#endif
 #include <linux/slab.h>
 #include <linux/task_work.h>
 #include <linux/thread_info.h>
 #include <linux/seccomp.h>
-#include <linux/capability.h>
-#include <linux/cred.h>
-#include <linux/dcache.h>
-#include <linux/err.h>
-#include <linux/fs.h>
-#include <linux/init.h>
-#include <linux/init_task.h>
-#include <linux/kernel.h>
-#include <linux/kprobes.h>
-#include <linux/mm.h>
-#include <linux/mount.h>
-#include <linux/namei.h>
-#include <linux/nsproxy.h>
-#include <linux/path.h>
 #include <linux/printk.h>
 #include <linux/sched.h>
-#include <linux/stddef.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
+#include <linux/sched/signal.h>
+#endif
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
@@ -41,6 +26,7 @@
 #include "syscall_handler.h"
 #endif
 #include "kernel_umount.h"
+#include "kernel_compat.h"
 
 static bool ksu_enhanced_security_enabled = false;
 
@@ -65,29 +51,38 @@ static const struct ksu_feature_handler enhanced_security_handler = {
 	.set_handler = enhanced_security_feature_set,
 };
 
-static inline bool is_allow_su(void)
+static void ksu_install_manager_fd_tw_func(struct callback_head *cb)
 {
-	if (is_manager()) {
-		// we are manager, allow!
-		return true;
+	ksu_install_fd();
+	kfree(cb);
+}
+
+static void do_install_manager_fd(void)
+{
+	struct callback_head *cb = kzalloc(sizeof(*cb), GFP_ATOMIC);
+	if (!cb)
+		return;
+
+	cb->func = ksu_install_manager_fd_tw_func;
+	if (task_work_add(current, cb, TWA_RESUME)) {
+		kfree(cb);
+		pr_warn("install manager fd add task_work failed\n");
 	}
-	return ksu_is_allow_uid_for_current(current_uid().val);
 }
 
 // force_sig kcompat, TODO: move it out of core_hook.c
 // https://elixir.bootlin.com/linux/v5.3-rc1/source/kernel/signal.c#L1613
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-#define __force_sig(sig) force_sig(sig)
+#define send_sigkill() force_sig(SIGKILL)
 #else
-#define __force_sig(sig) force_sig(sig, current)
+#define send_sigkill() force_sig(SIGKILL, current)
 #endif
 
-extern void disable_seccomp(struct task_struct *tsk);
-int ksu_handle_setuid_common(uid_t new_uid, uid_t old_uid, uid_t new_euid,
-			     uid_t old_euid)
+extern void disable_seccomp(void);
+int ksu_handle_setuid_common(uid_t new_uid, uid_t old_uid, uid_t new_euid)
 {
 #ifdef CONFIG_KSU_DEBUG
-	pr_info("handle_set{res}uid from %d to %d\n", old_uid, new_uid);
+	pr_info("handle_setuid from %d to %d\n", old_uid, new_uid);
 #endif
 
 	// if old process is root, ignore it.
@@ -96,26 +91,22 @@ int ksu_handle_setuid_common(uid_t new_uid, uid_t old_uid, uid_t new_euid,
 		// euid is what we care about here as it controls permission
 		if (unlikely(new_euid == 0) && !is_ksu_domain()) {
 			pr_warn("find suspicious EoP: %d %s, from %d to %d\n",
-				current->pid, current->comm, old_uid,
-				new_uid);
-			__force_sig(SIGKILL);
+				current->pid, current->comm, old_uid, new_uid);
+			send_sigkill();
 			return 0;
 		}
 		// disallow appuid decrease to any other uid if it is not allowed to su
-		if (is_appuid(old_uid) && new_euid < old_euid &&
+		if (is_appuid(old_uid) && new_euid < current_euid().val &&
 		    !ksu_is_allow_uid_for_current(old_uid)) {
 			pr_warn("find suspicious EoP: %d %s, from %d to %d\n",
-				current->pid, current->comm, old_euid,
-				new_euid);
-			__force_sig(SIGKILL);
+				current->pid, current->comm, old_uid, new_euid);
+			send_sigkill();
 			return 0;
 		}
 		return 0;
 	}
 
 	if (ksu_get_manager_appid() == new_uid % PER_USER_RANGE) {
-		pr_info("install fd for ksu manager(uid=%d)\n", new_uid);
-		ksu_install_fd();
 		spin_lock_irq(&current->sighand->siglock);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
 		ksu_seccomp_allow_cache(current->seccomp.filter, __NR_reboot);
@@ -123,9 +114,11 @@ int ksu_handle_setuid_common(uid_t new_uid, uid_t old_uid, uid_t new_euid,
 		ksu_set_task_tracepoint_flag(current);
 #endif
 #else
-		disable_seccomp(current);
+		disable_seccomp();
 #endif
 		spin_unlock_irq(&current->sighand->siglock);
+		pr_info("install fd for manager (uid=%d)\n", new_uid);
+		do_install_manager_fd();
 		return 0;
 	}
 
@@ -146,12 +139,9 @@ int ksu_handle_setuid_common(uid_t new_uid, uid_t old_uid, uid_t new_euid,
 	}
 #else
 	if (ksu_is_allow_uid_for_current(new_uid)) {
-		// FIXME: Should do proper checking
-		if (current->seccomp.filter != NULL) {
-			spin_lock_irq(&current->sighand->siglock);
-			disable_seccomp(current);
-			spin_unlock_irq(&current->sighand->siglock);
-		}
+		spin_lock_irq(&current->sighand->siglock);
+		disable_seccomp();
+		spin_unlock_irq(&current->sighand->siglock);
 	}
 #endif
 
@@ -171,7 +161,7 @@ void ksu_setuid_hook_init(void)
 
 void ksu_setuid_hook_exit(void)
 {
-	pr_info("ksu_core_exit\n");
+	pr_info("ksu setuid exit\n");
 	ksu_kernel_umount_exit();
 	ksu_unregister_feature_handler(KSU_FEATURE_ENHANCED_SECURITY);
 }
