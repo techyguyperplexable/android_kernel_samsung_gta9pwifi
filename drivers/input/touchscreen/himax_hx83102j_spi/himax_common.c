@@ -3580,6 +3580,7 @@ END:
 
 int himax_chip_common_resume(struct himax_ts_data *ts)
 {
+	msleep(100);
 	if (ts->suspended == false) {
 		I("%s: Already resumed, skip...\n", __func__);
 		goto END;
