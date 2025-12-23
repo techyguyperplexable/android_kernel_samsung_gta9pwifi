@@ -566,7 +566,7 @@ int msm_vdec_update_stream_output_mode(struct msm_vidc_inst *inst)
 	msm_comm_set_stream_output_mode(inst,
 		stream_output_mode);
 
-	fourcc = V4L2_PIX_FMT_NV12_UBWC;
+	fourcc = V4L2_PIX_FMT_NV12;
 	if (inst->bit_depth == MSM_VIDC_BIT_DEPTH_10)
 		fourcc = V4L2_PIX_FMT_NV12_TP10_UBWC;
 
@@ -792,7 +792,7 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	f->type = OUTPUT_MPLANE;
 	f->fmt.pix_mp.height = DEFAULT_HEIGHT;
 	f->fmt.pix_mp.width = DEFAULT_WIDTH;
-	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_NV12_UBWC;
+	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_NV12;
 	f->fmt.pix_mp.num_planes = 2;
 	f->fmt.pix_mp.plane_fmt[0].sizeimage =
 		msm_vidc_calculate_dec_output_frame_size(inst);
