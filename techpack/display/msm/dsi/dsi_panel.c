@@ -282,7 +282,7 @@ static int dsi_panel_reset(struct dsi_panel *panel)
 	struct dsi_panel_reset_config *r_config = &panel->reset_config;
 	int i;
 
-	pr_err("WT_LCD,dsi_panel_reset IN\n ");//+P86801AA1,liuyongliang.wt,add,2023.05.24, add debug log
+	// pr_err("WT_LCD,dsi_panel_reset IN\n ");//+P86801AA1,liuyongliang.wt,add,2023.05.24, add debug log
 	if (gpio_is_valid(panel->reset_config.disp_en_gpio)) {
 		rc = gpio_direction_output(panel->reset_config.disp_en_gpio, 1);
 		if (rc) {
@@ -341,7 +341,7 @@ static int dsi_panel_reset(struct dsi_panel *panel)
 			DSI_WARN("unable to set dir for panel test gpio rc=%d\n",
 					rc);
 	}
-	pr_err("WT_LCD,dsi_panel_reset OUT\n ");//+P86801AA1,liuyongliang.wt,add,2023.05.24, add debug log
+	// pr_err("WT_LCD,dsi_panel_reset OUT\n ");//+P86801AA1,liuyongliang.wt,add,2023.05.24, add debug log
 exit:
 	return rc;
 }
@@ -383,11 +383,11 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 	if(!strcmp("Simulator_video_dsi_panel",panel->name))
 	{
 		ocp2138_BiasPower_disable(0);
-		pr_err("WT_LCD,dsi_panel_power_on: Simulator video exit!\n ");
+		// pr_err("WT_LCD,dsi_panel_power_on: Simulator video exit!\n ");
 		return 0;
 	}
 
-	pr_err("WT_LCD,dsi_panel_power_on IN\n ");//+P86801AA1,liuyongliang.wt,add,2023.05.24, add debug log
+	// pr_err("WT_LCD,dsi_panel_power_on IN\n ");//+P86801AA1,liuyongliang.wt,add,2023.05.24, add debug log
 	rc = dsi_pwr_enable_regulator(&panel->power_info, true);
 	if (rc) {
 		DSI_ERR("[%s] failed to enable vregs, rc=%d\n",
@@ -491,7 +491,7 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 		pr_info("esd_interval_time mdelay(65)\n");
 	}
 
-	pr_err("WT_LCD,dsi_panel_power_on OUT\n ");//+P86801AA1,liuyongliang.wt,add,2023.05.24, add debug log
+	// pr_err("WT_LCD,dsi_panel_power_on OUT\n ");//+P86801AA1,liuyongliang.wt,add,2023.05.24, add debug log
 	goto exit;
 
 error_disable_gpio:
@@ -519,11 +519,11 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 
 	if(!strcmp("Simulator_video_dsi_panel",panel->name))
 	{
-		pr_err("WT_LCD,dsi_panel_power_off: Simulator video exit!\n ");
+		// pr_err("WT_LCD,dsi_panel_power_off: Simulator video exit!\n ");
 		return 0;
 	}
 
-	pr_err("WT_LCD,dsi_panel_power_off IN\n ");//+P86801AA1,liuyongliang.wt,add,2023.05.24, add debug log
+	// pr_err("WT_LCD,dsi_panel_power_off IN\n ");//+P86801AA1,liuyongliang.wt,add,2023.05.24, add debug log
 	if (panel->is_twm_en || panel->skip_panel_off) {
 		DSI_DEBUG("TWM Enabled, skip panel power off\n");
 		return rc;
@@ -536,11 +536,11 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 #else
 	if (himax_gestrue_status || fts_gestrue_status || chipone_gestrue_status || jd_gestrue_status) {
 #endif
-		pr_err("WT_LCD,dsi_panel_power_off not set reset low\n ");
+		// pr_err("WT_LCD,dsi_panel_power_off not set reset low\n ");
 	} else {
 		if (gpio_is_valid(panel->reset_config.reset_gpio) &&
 						!panel->reset_gpio_always_on){
-			pr_err("WT_LCD,dsi_panel_power_off set reset low\n ");//+P86801AA1,liuyongliang.wt,add,2023.05.29, add debug log
+			// pr_err("WT_LCD,dsi_panel_power_off set reset low\n ");//+P86801AA1,liuyongliang.wt,add,2023.05.29, add debug log
 			gpio_set_value(panel->reset_config.reset_gpio, 0);
 			if(!strcmp("ft8203_wt_dsi_vdo_90hz_focaltech",panel->name))
 			{
@@ -682,7 +682,7 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 #ifdef CONFIG_QGKI_BUILD
 	is_shut_down = false;
 #endif
-	pr_err("WT_LCD,dsi_panel_power_off OUT\n ");//+P86801AA1,liuyongliang.wt,add,2023.05.24, add debug log
+	// pr_err("WT_LCD,dsi_panel_power_off OUT\n ");//+P86801AA1,liuyongliang.wt,add,2023.05.24, add debug log
 	return rc;
 }
 static int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
@@ -830,7 +830,7 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 		mode_flags = dsi->mode_flags;
 		dsi->mode_flags |= MIPI_DSI_MODE_LPM;
 	}
-	pr_err("WT_LCD,%s_brightness[get], bl_lvl:0x%x\n",panel->name,bl_lvl);
+	// pr_err("WT_LCD,%s_brightness[get], bl_lvl:0x%x\n",panel->name,bl_lvl);
 	if (panel->bl_config.bl_inverted_dbv){
 		if((0 == strcmp(panel->name ,"focaltech_ft8203_wt_dsi_vdo_90hz_apf_boe"))||(0 == strcmp(panel->name ,"ft8203_wt_dsi_vdo_90hz_focaltech"))||(0 == strcmp(panel->name ,"dsbj_ft8203_wt_dsi_vdo_90hz_inx")))
 			bl_lvl = ((bl_lvl & 0x0f) | ((bl_lvl & 0xff0) << 4));
@@ -838,7 +838,7 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 		bl_lvl = (((bl_lvl & 0xff) << 8) | (bl_lvl >> 8));
 	}
 
-	//pr_err("WT_LCD,dsi_panel_update_backlight[send], bl_lvl:0x%x\n",bl_lvl);//+P86801AA1,liuyongliang.wt,add,2023.05.24, add debug log
+	//// pr_err("WT_LCD,dsi_panel_update_backlight[send], bl_lvl:0x%x\n",bl_lvl);//+P86801AA1,liuyongliang.wt,add,2023.05.24, add debug log
 	rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
 	if (rc < 0)
 		DSI_ERR("failed to update dcs backlight:%d\n", bl_lvl);
