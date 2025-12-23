@@ -2514,7 +2514,7 @@ static int cx25890h_iio_write_raw(struct iio_dev *indio_dev,
 		break;
 	case PSY_IIO_MAIN_CHARGE_FEED_WDT:
 		//cx25890h_feed_watchdog_timer(cx_chg);
-		dev_err(cx_chg->dev, "temp shut watchdog !!!\n");
+		// dev_err(cx_chg->dev, "temp shut watchdog !!!\n");
 		break;
 	default:
 		dev_err(cx_chg->dev, "Unsupported CX25890H IIO chan %d\n", chan->channel);
