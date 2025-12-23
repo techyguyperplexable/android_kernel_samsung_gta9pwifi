@@ -160,3 +160,7 @@ kernelbuild/
 log.txt
 toolchain/
 /*.tar.zst
+
+# Build artifacts
+dtb.img
+AnyKernel3/dtb
