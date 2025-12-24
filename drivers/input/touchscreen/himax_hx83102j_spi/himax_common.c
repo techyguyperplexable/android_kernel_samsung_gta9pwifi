@@ -3580,18 +3580,17 @@ END:
 
 int himax_chip_common_resume(struct himax_ts_data *ts)
 {
-	if (ts->suspended) msleep(30);
 	if (ts->suspended == false) {
 		I("%s: Already resumed, skip...\n", __func__);
 		goto END;
-	} else {
-		ts->suspended = false;
 	}
-// +P86801AA1 daijun1.wt,modify,2023/10/18,hx83102,adjusting the TP_reset when the screen lights up
-	if (!ts->SMWP_enable) {
-		himax_rst_gpio_set(hx_s_ts->rst_gpio,1);
-	}
-// -P86801AA1 daijun1.wt,modify,2023/10/18,hx83102,adjusting the TP_reset when the screen lights up
+
+	ts->suspended = false;
+	himax_rst_gpio_set(hx_s_ts->rst_gpio, 0);
+	msleep(20);
+	himax_rst_gpio_set(hx_s_ts->rst_gpio, 1);
+	msleep(50);
+
 	I("%s: enter\n", __func__);
 
 	if (ts->in_self_test == 1) {
