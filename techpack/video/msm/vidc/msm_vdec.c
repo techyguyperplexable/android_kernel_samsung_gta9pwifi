@@ -463,16 +463,6 @@ struct msm_vidc_format_desc vdec_output_formats[] = {
 		.description = "Y/CbCr 4:2:0 10bit",
 		.fourcc = V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS,
 	},
-	{
-		.name = "UBWC YCbCr Semiplanar 4:2:0",
-		.description = "UBWC Y/CbCr 4:2:0",
-		.fourcc = V4L2_PIX_FMT_NV12_UBWC,
-	},
-	{
-		.name = "UBWC YCbCr Semiplanar 4:2:0 10bit",
-		.description = "UBWC Y/CbCr 4:2:0 10bit",
-		.fourcc = V4L2_PIX_FMT_NV12_TP10_UBWC,
-	},
 };
 
 struct msm_vidc_format_desc vdec_input_formats[] = {
@@ -568,7 +558,7 @@ int msm_vdec_update_stream_output_mode(struct msm_vidc_inst *inst)
 
 	fourcc = V4L2_PIX_FMT_NV12;
 	if (inst->bit_depth == MSM_VIDC_BIT_DEPTH_10)
-		fourcc = V4L2_PIX_FMT_NV12_TP10_UBWC;
+		fourcc = V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS;
 
 	inst->clk_data.dpb_fourcc = fourcc;
 
