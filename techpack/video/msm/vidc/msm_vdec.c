@@ -784,6 +784,8 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	f->fmt.pix_mp.width = DEFAULT_WIDTH;
 	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_NV12;
 	f->fmt.pix_mp.num_planes = 2;
+	inst->clk_data.opb_fourcc = f->fmt.pix_mp.pixelformat;
+	inst->clk_data.dpb_fourcc = f->fmt.pix_mp.pixelformat;
 	f->fmt.pix_mp.plane_fmt[0].sizeimage =
 		msm_vidc_calculate_dec_output_frame_size(inst);
 	f->fmt.pix_mp.plane_fmt[1].sizeimage =
